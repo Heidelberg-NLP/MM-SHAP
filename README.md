@@ -21,7 +21,10 @@ This is the official implementation of the paper "MM-SHAP: A Performance-agnosti
 ```
 
 ## Usage
-To run experiments with CLIP, LXMERT and ALBEF models, run the corresponding script `mm-shap_[MODEL]_dataset.py`.
+To run experiments with CLIP, LXMERT and ALBEF models, run the corresponding script `mm-shap_[MODEL]_dataset.py`. You need to download the data from their corresponding repositories, for example:
+* VALSE 💃: https://github.com/Heidelberg-NLP/VALSE
+* VQA: https://visualqa.org/download.html
+* GQA: https://cs.stanford.edu/people/dorarad/gqa/download.html
 
 ## Credits
 The Shapley value implementation in the `shap` folder is a modified version of https://github.com/slundberg/shap .
