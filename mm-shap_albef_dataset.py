@@ -129,21 +129,24 @@ transform = transforms.Compose([
 
 def custom_masker(mask, x):
     """
-    Shap relevant function. Defines the masking function so the shap computation
-    can 'know' how the model prediction looks like when some tokens are masked.
+    Shap relevant function.
+    It gets a mask from the shap library with truth values about which image and text tokens to mask (False) and which not (True).
+    It defines how to mask the text tokens and masks the text tokens. So far, we don't mask the image, but have only defined which image tokens to mask. The image tokens masking happens in get_model_prediction().
     """
     masked_X = x.clone()
     mask = torch.tensor(mask).unsqueeze(0)
     masked_X[~mask] = 0  # ~mask !!! to zero
     # never mask out CLS and SEP tokens (makes no sense for the model to work without them)
     masked_X[0, 0] = 101  # start token ALBEF
-    # masked_X[0, text_length_tok-1] = 4624 # sep token ALBEF (no TOKEN!!!)
+    # masked_X[0, nb_text_tokens-1] = 4624 # sep token ALBEF (no TOKEN!!!)
     return masked_X
 
 
 def get_model_prediction(x):
     """
-    Shap relevant function. Predict the model output for all combinations of masked tokens.
+    Shap relevant function.
+    1. Mask the image pixel according to the specified patches to mask from the custom masker.
+    2. Predict the model output for all combinations of masked image and tokens. This is then further passed to the shap libary.
     """
     with torch.no_grad():
         # split up the input_ids and the image_token_ids from x (containing both appended)
@@ -161,7 +164,7 @@ def get_model_prediction(x):
 
         # call the model for each "new image" generated with masked features
         for i in range(input_ids.shape[0]):
-            # here the actual masking of ALBEF is happening. The custom masker only specified which patches to mask, but no actual masking has happened
+            # here the actual masking of the image is happening. The custom masker only specified which patches to mask, but no actual masking has happened
             masked_text_inputs = text_input.copy()
             masked_text_inputs['input_ids'] = input_ids[i].unsqueeze(0)
             masked_image = copy.deepcopy(image)
@@ -277,9 +280,10 @@ for instrument, foil_info in DATA.items():
                     image = image.cpu()
                     text_input = text_input.to(image.device)
 
-                text_length_tok = text_input.input_ids.shape[1]
-                p = int(math.ceil(np.sqrt(text_length_tok)))
-                patch_size = 384 // p # 384 image size albef
+                nb_text_tokens = text_input.input_ids.shape[1] # number of text tokens
+                # calculate the number of patches needed to cover the image
+                p = int(math.ceil(np.sqrt(nb_text_tokens)))
+                patch_size = 384 // p # 384 is the image size for ALBEF
                 image_token_ids = torch.tensor(range(1, p**2+1)).unsqueeze(0) # take one less because CLS and SEP tokens do not count
 
                 # make a cobination between tokens and pixel_values (transform to patches first)
@@ -290,7 +294,7 @@ for instrument, foil_info in DATA.items():
                 explainer = shap.Explainer(
                     get_model_prediction, custom_masker, silent=True)
                 shap_values = explainer(X)
-                mm_score = compute_mm_score(text_length_tok, shap_values)
+                mm_score = compute_mm_score(nb_text_tokens, shap_values)
 
                 if k == 0:
                     which = 'caption'
