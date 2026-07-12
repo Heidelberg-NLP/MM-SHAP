@@ -1,9 +1,14 @@
 # conda activate shap (rampage)
+import os, sys
+# The vendored LXMERT modules import `utils` (LXMERT/utils.py) as a top-level
+# module, so make LXMERT/ importable regardless of the current working directory.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "LXMERT"))
+
 import shap
 import torch
 from utils import Config
 import utils
-import os, copy, sys
+import copy
 import math, json
 import random
 import numpy as np
@@ -14,6 +19,9 @@ from LXMERT.modeling_frcnn import GeneralizedRCNN
 from transformers import LxmertTokenizer, LxmertForPreTraining, LxmertForQuestionAnswering
 
 from read_datasets import read_data
+from mmshap_repro import maybe_seed, resolve_model
+
+maybe_seed()  # deterministic only if MMSHAP_SEED is set (used by the regression harness)
 
 num_samples = sys.argv[1] # "all" or number
 if num_samples != "all":
@@ -142,17 +150,17 @@ def compute_mm_score(text_length, shap_values):
 
 def load_models(task):
     """ Load models and model components. """
-    frcnn_cfg = Config.from_pretrained("unc-nlp/frcnn-vg-finetuned")
+    frcnn_cfg = Config.from_pretrained(resolve_model("unc-nlp/frcnn-vg-finetuned"))
     frcnn_cfg.MODEL.DEVICE = "cuda"
     frcnn = GeneralizedRCNN.from_pretrained(
-        "unc-nlp/frcnn-vg-finetuned", config=frcnn_cfg).cuda()
+        resolve_model("unc-nlp/frcnn-vg-finetuned"), config=frcnn_cfg).cuda()
     image_preprocess = Preprocess(frcnn_cfg)
 
-    tokenizer = LxmertTokenizer.from_pretrained("unc-nlp/lxmert-base-uncased")
+    tokenizer = LxmertTokenizer.from_pretrained(resolve_model("unc-nlp/lxmert-base-uncased"))
 
     if task == "image_sentence_alignment":
         model = LxmertForPreTraining.from_pretrained(
-            "unc-nlp/lxmert-base-uncased").cuda()
+            resolve_model("unc-nlp/lxmert-base-uncased")).cuda()
         answers = None
     elif task == "vqa":
         model = LxmertForQuestionAnswering.from_pretrained(

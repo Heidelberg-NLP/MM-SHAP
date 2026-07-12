@@ -17,9 +17,15 @@
 # Datasets and sample images (fetched via scripts/prepare_foil_sample.py)
 /data/
 
+# Pre-downloaded model snapshots (fetched via scripts/fetch_local_models.py)
+/models_local/
+
 # Local HuggingFace cache
 /.hf_cache/
 
 # Results written by the mm-shap_* scripts
 /result_jsons/
 /results_txts/
+
+# Before/after regression harness outputs
+/regression_results/

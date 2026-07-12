@@ -82,6 +82,20 @@ Model weights (LXMERT/CLIP from the HuggingFace Hub, ALBEF `.pth` checkpoints) a
 datasets are gitignored. The ALBEF and LXMERT *code* is vendored (see the
 third-party license note below).
 
+### Local model snapshots (needed for the legacy env)
+The legacy `transformers 4.11.1` in the "before" env cannot download from the
+current HuggingFace Hub. `scripts/fetch_local_models.py` pre-downloads the model
+files into `models_local/` (gitignored) so **both** stacks load from a local path
+(also guaranteeing byte-identical weights):
+
+```bash
+uv run python scripts/fetch_local_models.py          # CLIP, LXMERT, BERT, Faster R-CNN
+```
+
+At runtime the scripts call `mmshap_repro.resolve_model(<hf id>)`, which returns the
+local snapshot if present and otherwise falls back to the normal Hub id, so the
+`.venv` ("after") env still works without this step.
+
 ## Dataset (foil-benchmark / VALSE)
 Experiments use the VALSE benchmark ([Heidelberg-NLP/VALSE](https://github.com/Heidelberg-NLP/VALSE)).
 `scripts/prepare_foil_sample.py` downloads a small, self-contained sample for one
@@ -109,6 +123,41 @@ uv run python mm-shap_albef_dataset.py 20 flickr30k no   # <num_samples> <checkp
 For the full benchmark, download the datasets from their sources
 (VALSE 💃 https://github.com/Heidelberg-NLP/VALSE, VQA https://visualqa.org/download.html,
 GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and adjust the `DATA` dict.
+
+## Regression testing (before vs. after)
+To check that the modernized (uv / Python 3.10) stack reproduces the legacy
+(conda / Python 3.6) stack, `scripts/regression_test.py` runs the *same* fixed
+sample through both environments and compares the per-sample model predictions and
+t-SHAP scores. Both stacks share the same vendored `shap/` source, so this isolates
+the effect of the dependency upgrade (torch 1.9→2.2, transformers 4.11→4.39,
+numpy 1.19→1.26).
+
+Prerequisites: create both envs (`uv sync` and the `environment.before.yml` env
+above), fetch the local model snapshots, and prepare the data sample.
+
+```bash
+uv run python scripts/fetch_local_models.py
+uv run python scripts/prepare_foil_sample.py --instrument existence --num 20
+
+uv run python scripts/regression_test.py --model clip   --num 3
+uv run python scripts/regression_test.py --model lxmert --num 3
+uv run python scripts/regression_test.py --model albef  --num 3 --checkpoint flickr30k
+```
+
+Determinism is controlled by the `MMSHAP_SEED` environment variable (set by the
+harness; unset means the original stochastic behaviour). When set, `mmshap_repro.py`
+seeds Python/NumPy/torch so the shap permutation orderings match across stacks.
+
+Expected parity (numbers from the `existence` sample, 3 samples, seed 0):
+* **CLIP** (CPU) reproduces almost exactly — max |Δ| ≈ 2e-3.
+* **ALBEF** (GPU, ViT + BERT) also reproduces tightly — max |Δ| ≈ 4e-4.
+* **LXMERT** (GPU, incl. Faster R-CNN feature extraction) is looser — max |Δ| ≈ 8e-2.
+  The RoI-pooling / NMS ops in FRCNN differ across CUDA/torch versions, so LXMERT
+  reproduces only *qualitatively* (a few percent at the logit level, but identical
+  pairwise accuracy).
+
+The harness uses a per-model default tolerance (CLIP `1e-2`, LXMERT/ALBEF `1e-1`);
+pass `--tol` to override.
 
 ## Credits & third-party licenses
 This repository is MIT-licensed (see `LICENSE`), but it bundles third-party code

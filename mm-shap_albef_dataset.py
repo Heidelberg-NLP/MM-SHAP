@@ -18,7 +18,9 @@ from ALBEF.models.xbert import BertConfig, BertModel
 from transformers import BertTokenizer
 
 from read_datasets import read_data
+from mmshap_repro import maybe_seed, resolve_model
 
+maybe_seed()  # deterministic only if MMSHAP_SEED is set (used by the regression harness)
 
 num_samples = sys.argv[1] # "all" or number
 if num_samples != "all":
@@ -203,19 +205,17 @@ def load_models():
     """ Load models and model components. """
     model_path = f'ALBEF/checkpoints/{checkp}.pth'  # largest model: ALBEF.pth, smaller: ALBEF_4M.pth, refcoco, mscoco, vqa, flickr30k
     bert_config_path = 'ALBEF/configs/config_bert.json'
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizer.from_pretrained(resolve_model('bert-base-uncased'))
 
     model = VL_Transformer_ITM(
-        text_encoder='bert-base-uncased', config_bert=bert_config_path)
+        text_encoder=resolve_model('bert-base-uncased'), config_bert=bert_config_path)
 
     checkpoint = torch.load(model_path, map_location='cpu')
     msg = model.load_state_dict(checkpoint, strict=False)
     model.eval()
 
-    block_num = 8
-
-    model.text_encoder.base_model.base_model.encoder.layer[
-        block_num].crossattention.self.save_attention = True
+    # ALBEF's Grad-CAM hook (save_attention) is unused by MM-SHAP and crashes under
+    # torch 1.9 on the no-grad inference tensor, so it is left disabled.
 
     if use_cuda:
         model.cuda()

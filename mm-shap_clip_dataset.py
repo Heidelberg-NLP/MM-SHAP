@@ -11,6 +11,9 @@ from tqdm import tqdm
 from transformers import CLIPProcessor, CLIPModel
 
 from read_datasets import read_data
+from mmshap_repro import maybe_seed, resolve_model
+
+maybe_seed()  # deterministic only if MMSHAP_SEED is set (used by the regression harness)
 
 # sys.stderr = open('results_txts/clip_all_samples.txt', 'a')
 
@@ -116,8 +119,8 @@ def compute_mm_score(text_length, shap_values):
 
 def load_models():
     """ Load models and model components. """
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    model = CLIPModel.from_pretrained(resolve_model("openai/clip-vit-base-patch32"))
+    processor = CLIPProcessor.from_pretrained(resolve_model("openai/clip-vit-base-patch32"))
     return model, processor
 
 
