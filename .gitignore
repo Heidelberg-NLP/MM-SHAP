@@ -1,3 +1,8 @@
 /.vscode
 /__pycache__
 *.pyc
+
+# uv / virtual environment
+.venv/
+
+

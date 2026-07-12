@@ -20,6 +20,38 @@ This is the official implementation of the paper "MM-SHAP: A Performance-agnosti
 }
 ```
 
+## Setup
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). To create the environment (pinned to Python 3.10):
+
+```bash
+uv sync
+```
+
+This installs everything declared in `pyproject.toml` and pinned in `uv.lock` into a local `.venv/`. Run any script through uv so it uses that environment:
+
+```bash
+uv run python mm-shap_clip_dataset.py <num_samples> <write_res>
+```
+
+> The legacy conda files (`environment.yml`, `requirements_conda.txt`, `requirements_pip.txt`) describe the original Python 3.6 stack and are kept for reference only.
+
+### Legacy "before" environment (for regression testing)
+To reproduce the original Python 3.6 stack (e.g. to generate baseline outputs and check the modernized code matches), a minimal, runnable conda spec is provided in `environment.before.yml`. It is built with a local [micromamba](https://mamba.readthedocs.io/):
+
+```bash
+# one-time: download the micromamba binary into ./bin
+curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+
+# create the env (into ./.micromamba, both gitignored)
+export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
+./bin/micromamba env create -y -f environment.before.yml
+
+# run a script in the legacy env
+./bin/micromamba run -n shap-before python mm-shap_clip_dataset.py <num_samples> <write_res>
+```
+
+This installs the original pins (Python 3.6.13, `torch 1.9.1`/CUDA 11.1, `transformers 4.11.1`, `numpy 1.19.2`, ...). Notebook/experiment tooling from the original file is intentionally omitted.
+
 ## Usage
 To run experiments with CLIP, LXMERT and ALBEF models, run the corresponding script `mm-shap_[MODEL]_dataset.py`. You need to download the data from their corresponding repositories, for example:
 * VALSE 💃: https://github.com/Heidelberg-NLP/VALSE
