@@ -13,7 +13,9 @@ from functools import partial
 
 from ALBEF.models.vit import VisionTransformer
 from ALBEF.models.xbert import BertConfig, BertModel
-from ALBEF.models.tokenization_bert import BertTokenizer
+# Use the stock HuggingFace tokenizer: it is identical to ALBEF's vendored copy for
+# `bert-base-uncased` but stays compatible with modern `transformers`.
+from transformers import BertTokenizer
 
 from read_datasets import read_data
 
@@ -30,8 +32,8 @@ use_cuda = True
 DATA = {
     # "foil_it": ["/scratch/COCO/val2014/",
     #             "/scratch/foil-benchmark/orig_foil/foil_it_test_mturk.json"],
-    "existence": ["/scratch/visualglue-data-collection/visual7w/images/",
-                  '/scratch/foil-benchmark/existence/existence_benchmark.test_mturk.json'],
+    "existence": ["data/foil-benchmark/images/existence",
+                  "data/foil-benchmark/annotations/existence.sample.json"],
     # "plurals": ["/scratch/foil-benchmark/plurals/test_images/",
     #             '/scratch/foil-benchmark/plurals/plurals_test_mturk.json'],
     # "counting_hard": ["/scratch/visualglue-data-collection/visual7w/images/",

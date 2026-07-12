@@ -52,11 +52,77 @@ export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
 
 This installs the original pins (Python 3.6.13, `torch 1.9.1`/CUDA 11.1, `transformers 4.11.1`, `numpy 1.19.2`, ...). Notebook/experiment tooling from the original file is intentionally omitted.
 
-## Usage
-To run experiments with CLIP, LXMERT and ALBEF models, run the corresponding script `mm-shap_[MODEL]_dataset.py`. You need to download the data from their corresponding repositories, for example:
-* VALSE 💃: https://github.com/Heidelberg-NLP/VALSE
-* VQA: https://visualqa.org/download.html
-* GQA: https://cs.stanford.edu/people/dorarad/gqa/download.html
+## Models
+Three models are supported, one per script. CLIP and LXMERT are downloaded
+automatically from the HuggingFace Hub on first run; ALBEF needs a one-time setup.
 
-## Credits
-The Shapley value implementation in the `shap` folder is a modified version of https://github.com/slundberg/shap .
+| Script | Model | Weights source |
+| --- | --- | --- |
+| `mm-shap_clip_dataset.py` | CLIP (`openai/clip-vit-base-patch32`) | HuggingFace Hub (automatic) |
+| `mm-shap_lxmert_dataset.py` | LXMERT (`unc-nlp/lxmert-base-uncased`) + Faster R-CNN (`unc-nlp/frcnn-vg-finetuned`) | HuggingFace Hub / legacy S3 (automatic) |
+| `mm-shap_albef_dataset.py` | ALBEF (finetuned checkpoints) | `scripts/setup_albef.py` |
+
+The ALBEF model code is vendored in `ALBEF/` (from
+[salesforce/ALBEF](https://github.com/salesforce/ALBEF); see `ALBEF/README.md`).
+You only need to download a checkpoint:
+
+```bash
+uv run python scripts/setup_albef.py                 # default: flickr30k checkpoint
+# other checkpoints: --checkpoint {flickr30k,mscoco,refcoco,vqa,ALBEF,ALBEF_4M,all}
+```
+
+Notes on modernization (kept identical between the "before" and "after" stacks):
+* The Faster R-CNN loader (`LXMERT/modeling_frcnn.py`) defaulted to the dead
+  `cdn.huggingface.co`; it now uses the still-live legacy S3 bucket.
+* ALBEF's vendored `xbert.py` used a removed `add_code_sample_docstrings(tokenizer_class=...)`
+  argument (patched away), and the ALBEF script now uses the stock
+  `transformers.BertTokenizer` (identical output for `bert-base-uncased`).
+
+Model weights (LXMERT/CLIP from the HuggingFace Hub, ALBEF `.pth` checkpoints) and
+datasets are gitignored. The ALBEF and LXMERT *code* is vendored (see the
+third-party license note below).
+
+## Dataset (foil-benchmark / VALSE)
+Experiments use the VALSE benchmark ([Heidelberg-NLP/VALSE](https://github.com/Heidelberg-NLP/VALSE)).
+`scripts/prepare_foil_sample.py` downloads a small, self-contained sample for one
+instrument: it fetches the annotation json and a handful of images (for `existence`,
+the Visual7W ids map to public Visual Genome images) into `data/foil-benchmark/`.
+
+```bash
+uv run python scripts/prepare_foil_sample.py --instrument existence --num 20
+```
+
+This writes `data/foil-benchmark/annotations/existence.sample.json` and images under
+`data/foil-benchmark/images/existence/`. The `DATA` dict in each `mm-shap_*` script
+already points at this sample for the `existence` instrument.
+
+## Usage
+Run the corresponding script `mm-shap_[MODEL]_dataset.py` from the repository root
+(so that `import shap` resolves to the vendored `shap/` package):
+
+```bash
+uv run python mm-shap_clip_dataset.py 20 no      # <num_samples: int|"all"> <write_res: yes|no>
+uv run python scripts/setup_albef.py             # once, for ALBEF
+uv run python mm-shap_albef_dataset.py 20 flickr30k no   # <num_samples> <checkpoint> <write_res>
+```
+
+For the full benchmark, download the datasets from their sources
+(VALSE 💃 https://github.com/Heidelberg-NLP/VALSE, VQA https://visualqa.org/download.html,
+GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and adjust the `DATA` dict.
+
+## Credits & third-party licenses
+This repository is MIT-licensed (see `LICENSE`), but it bundles third-party code
+under its own license:
+
+* The Shapley value implementation in the `shap` folder is a modified version of
+  https://github.com/slundberg/shap (MIT).
+* The `LXMERT/` folder (Faster R-CNN feature extraction) is from the HuggingFace
+  `transformers` LXMERT example and is licensed under **Apache License 2.0**, not
+  MIT. See `LXMERT/LICENSE` and `LXMERT/README.md` for provenance and the list of
+  modifications.
+* The `ALBEF/` folder is vendored from
+  [salesforce/ALBEF](https://github.com/salesforce/ALBEF), licensed **BSD-3-Clause**
+  (`ALBEF/LICENSE`), except `models/xbert.py` and `models/tokenization_bert.py`,
+  which retain their HuggingFace-derived **Apache-2.0** headers. See
+  `ALBEF/README.md` for provenance and modifications. Only the large `.pth`
+  checkpoints are fetched at setup time (`scripts/setup_albef.py`).
