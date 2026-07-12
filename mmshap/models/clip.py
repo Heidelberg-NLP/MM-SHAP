@@ -1,7 +1,7 @@
-"""CLIP adapter (openai/clip-vit-base-patch32), run on CPU."""
-import copy
+"""CLIP adapter (openai/clip-vit-base-patch32)."""
 from typing import Optional
 
+import numpy as np
 import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
@@ -11,6 +11,7 @@ from mmshap.masking import patch_grid_size
 from mmshap_repro import resolve_model
 
 IMAGE_SIZE = 224
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class Clip(MMShapModel):
@@ -22,7 +23,7 @@ class Clip(MMShapModel):
 
     def __init__(self) -> None:
         name = resolve_model("openai/clip-vit-base-patch32")
-        self.model = CLIPModel.from_pretrained(name)
+        self.model = CLIPModel.from_pretrained(name).to(DEVICE)
         self.processor = CLIPProcessor.from_pretrained(name)
 
     def encode_image(self, image_path: str) -> Image.Image:
@@ -43,16 +44,21 @@ class Clip(MMShapModel):
             patch_h=patch,
             patch_w=patch,
             grid_cols=IMAGE_SIZE // patch,
-            state={"inputs": inputs},
+            state={"attention_mask": inputs.attention_mask},
         )
 
     def predict(self, sample: Sample) -> float:
-        return self.model(**sample.state["inputs"]).logits_per_image[0, 0].item()
+        out = self.model(input_ids=sample.input_ids.to(DEVICE),
+                         attention_mask=sample.state["attention_mask"].to(DEVICE),
+                         pixel_values=sample.image.to(DEVICE))
+        return out.logits_per_image[0, 0].item()
 
     def predict_masked(self, sample: Sample, input_ids: torch.Tensor,
-                       image: torch.Tensor) -> float:
-        inputs = copy.deepcopy(sample.state["inputs"])
-        inputs["input_ids"] = input_ids
-        inputs["pixel_values"] = image
+                       images: torch.Tensor) -> np.ndarray:
+        attention_mask = sample.state["attention_mask"].repeat(len(input_ids), 1)
         with torch.no_grad():
-            return self.model(**inputs).logits_per_image.item()
+            out = self.model(input_ids=input_ids.to(DEVICE),
+                             attention_mask=attention_mask.to(DEVICE),
+                             pixel_values=images.to(DEVICE))
+        # each masked image is paired with its own masked text: take the diagonal.
+        return out.logits_per_image.diagonal().detach().cpu().numpy()

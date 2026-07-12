@@ -3,6 +3,7 @@ import re
 from functools import partial
 from typing import Optional
 
+import numpy as np
 import torch
 from PIL import Image
 from torch import nn
@@ -94,15 +95,16 @@ class Albef(MMShapModel):
 
     def predict(self, sample: Sample) -> float:
         text = sample.state["text_input"].copy().to("cuda")
-        return self._match_score(sample.image.cuda(), text)
+        return self._match(sample.image.cuda(), text)[0].item()
 
     def predict_masked(self, sample: Sample, input_ids: torch.Tensor,
-                       image: torch.Tensor) -> float:
+                       images: torch.Tensor) -> np.ndarray:
         text = sample.state["text_input"].copy()
         text["input_ids"] = input_ids
+        text["attention_mask"] = torch.ones_like(input_ids)
         with torch.no_grad():
-            return self._match_score(image.cuda(), text.to("cuda"))
+            return self._match(images.cuda(), text.to("cuda")).numpy()
 
-    def _match_score(self, image: torch.Tensor, text) -> float:
-        output = self.model(image, text)
-        return torch.nn.Softmax(dim=1)(output).cpu().detach()[:, 1].item()
+    def _match(self, images: torch.Tensor, text) -> torch.Tensor:
+        output = self.model(images, text)
+        return torch.nn.Softmax(dim=1)(output).cpu().detach()[:, 1]

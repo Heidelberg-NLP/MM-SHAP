@@ -11,8 +11,11 @@ Must be run from the repository root so that ``import shap`` resolves to the ven
 ``shap/`` package (a modified copy) rather than any pip-installed shap:
 
     uv run python mm-shap.py clip 20 --write
-    uv run python mm-shap.py lxmert all
+    uv run python mm-shap.py lxmert all --batch-size 16
     uv run python mm-shap.py albef 20 --checkpoint flickr30k --write
+
+``--batch-size`` sets how many masked (image, sentence) variants are scored per forward
+pass. Larger values are faster but use more GPU memory; lower it if you hit OOM.
 
 ``--checkpoint`` (ALBEF only) selects which finetuned ALBEF weights to load, i.e. the
 full image-text-matching model (ViT-B/16 visual encoder + BERT + ITM head) finetuned on
@@ -43,6 +46,9 @@ def main() -> None:
     ap.add_argument("num_samples", help='"all" or an integer')
     ap.add_argument("--checkpoint", default="flickr30k",
                     help="finetuned ALBEF weights to load (e.g. flickr30k, mscoco)")
+    ap.add_argument("--batch-size", type=int, default=64,
+                    help="masked variants scored per forward pass; raise to go faster, "
+                         "lower if the GPU runs out of memory")
     ap.add_argument("--write", action="store_true", help="write result jsons")
     args = ap.parse_args()
 
@@ -51,6 +57,7 @@ def main() -> None:
     num_samples = num if num == "all" else int(num)
     suffix = f"_{args.checkpoint}" if args.model == "albef" else ""
     model = build_model(args.model, args.checkpoint)
+    model.masked_batch_size = args.batch_size
     run(model, VALSE_DATA, num_samples, args.write, run_id_suffix=suffix)
 
 

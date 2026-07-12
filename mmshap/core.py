@@ -41,6 +41,7 @@ class MMShapModel(ABC):
     reports_accuracy: bool    # True if the score is a probability (0.5-thresholdable)
     start_token: int          # text CLS/BOS id, never masked
     end_token: Optional[int]  # text SEP/EOS id to preserve (None if model has none)
+    masked_batch_size: int = 64  # forward-pass batch; set by mm-shap.py's --batch-size
 
     @abstractmethod
     def encode_image(self, image_path: str):
@@ -56,19 +57,23 @@ class MMShapModel(ABC):
 
     @abstractmethod
     def predict_masked(self, sample: Sample, input_ids: torch.Tensor,
-                       image: torch.Tensor) -> float:
-        """Matching score for one masked variant (masked text + patch-masked image)."""
+                       images: torch.Tensor) -> np.ndarray:
+        """Matching scores for a batch of masked variants (masked text + patches)."""
 
     def score_variants(self, sample: Sample, features: np.ndarray) -> np.ndarray:
-        """SHAP callback: score a batch of masked rows (text ids then patch ids)."""
+        """SHAP callback: score all masked rows (text ids then patch ids) in batches."""
         split = sample.input_ids.shape[1]
         input_ids = torch.tensor(features[:, :split])
         patch_ids = features[:, split:]
         scores = np.zeros(len(features))
-        for i in range(len(features)):
-            image = zero_patches(sample.image.clone(), patch_ids[i],
-                                 sample.patch_h, sample.patch_w, sample.grid_cols)
-            scores[i] = self.predict_masked(sample, input_ids[i].unsqueeze(0), image)
+        for start in range(0, len(features), self.masked_batch_size):
+            rows = slice(start, start + self.masked_batch_size)
+            images = torch.cat([
+                zero_patches(sample.image.clone(), ids,
+                             sample.patch_h, sample.patch_w, sample.grid_cols)
+                for ids in patch_ids[rows]
+            ])
+            scores[rows] = self.predict_masked(sample, input_ids[rows], images)
         return scores
 
 

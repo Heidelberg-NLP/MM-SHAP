@@ -23,7 +23,7 @@
 # Local HuggingFace cache
 /.hf_cache/
 
-# Results written by the mm-shap_* scripts
+# Results written by mm-shap.py
 /result_jsons/
 /results_txts/
 

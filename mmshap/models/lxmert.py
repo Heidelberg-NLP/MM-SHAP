@@ -69,14 +69,16 @@ class Lxmert(MMShapModel):
 
     def predict(self, sample: Sample) -> float:
         ctx = sample.state["ctx"]
-        return self._match_score(sample, sample.input_ids,
-                                 ctx["features"], ctx["boxes"])
+        scores = self._match(sample, sample.input_ids, ctx["features"], ctx["boxes"])
+        return scores[0].item()
 
     def predict_masked(self, sample: Sample, input_ids: torch.Tensor,
-                       image: torch.Tensor) -> float:
+                       images: torch.Tensor) -> np.ndarray:
         ctx = sample.state["ctx"]
-        features, boxes = self._extract_features(image, ctx["sizes"], ctx["scales_yx"])
-        return self._match_score(sample, input_ids, features, boxes)
+        n = len(images)
+        features, boxes = self._extract_features(
+            images, ctx["sizes"].repeat(n, 1), ctx["scales_yx"].repeat(n, 1))
+        return self._match(sample, input_ids, features, boxes).numpy()
 
     def _extract_features(self, images: torch.Tensor, sizes, scales_yx):
         out = self.frcnn(images.cuda(), sizes, scales_yx=scales_yx,
@@ -85,16 +87,17 @@ class Lxmert(MMShapModel):
                          return_tensors="pt")
         return out.get("roi_features"), out.get("normalized_boxes")
 
-    def _match_score(self, sample: Sample, input_ids: torch.Tensor,
-                     features: torch.Tensor, boxes: torch.Tensor) -> float:
+    def _match(self, sample: Sample, input_ids: torch.Tensor,
+               features: torch.Tensor, boxes: torch.Tensor) -> torch.Tensor:
+        n = len(input_ids)
         out = self.model(
             input_ids=input_ids.cuda(),
-            attention_mask=sample.state["attention_mask"].cuda(),
+            attention_mask=sample.state["attention_mask"].repeat(n, 1).cuda(),
             visual_feats=features.cuda(),
             visual_pos=boxes.cuda(),
-            token_type_ids=sample.state["token_type_ids"].cuda(),
+            token_type_ids=sample.state["token_type_ids"].repeat(n, 1).cuda(),
             return_dict=True,
             output_attentions=False,
         )
         scores = torch.nn.Softmax(dim=1)(out["cross_relationship_score"])
-        return scores.cpu().detach()[:, 1].item()
+        return scores.cpu().detach()[:, 1]
