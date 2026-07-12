@@ -134,7 +134,7 @@ class SequentialPerturbation():
 
             masks = []
             for k in range(output_size): 
-                mask = np.ones(mask_shape, dtype=np.bool) * (self.perturbation == "remove")
+                mask = np.ones(mask_shape, dtype=bool) * (self.perturbation == "remove")
                 masks.append(mask.copy().flatten())
 
                 if output_size != 1: 
@@ -264,7 +264,7 @@ class SequentialPerturbation():
                 else: 
                     mask_shape = feature_size 
 
-                mask = np.ones(mask_shape, dtype=np.bool) * (self.perturbation == "remove")
+                mask = np.ones(mask_shape, dtype=bool) * (self.perturbation == "remove")
                 masks = [mask.copy()]
 
                 values = np.zeros(feature_size+1)
