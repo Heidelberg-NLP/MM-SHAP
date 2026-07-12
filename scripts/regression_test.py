@@ -41,10 +41,10 @@ def result_json_path(model: str, num: int, checkpoint: str) -> Path:
 
 
 def script_args(model: str, num: int, checkpoint: str) -> list[str]:
-    script = f"mm-shap_{model}_dataset.py"
+    args = ["mm-shap.py", model, str(num), "--write"]
     if model == "albef":
-        return [script, str(num), checkpoint, "yes"]
-    return [script, str(num), "yes"]
+        args += ["--checkpoint", checkpoint]
+    return args
 
 
 def run_stack(stack: str, model: str, num: int, checkpoint: str, seed: int) -> dict:

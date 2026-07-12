@@ -3,7 +3,7 @@
 # Derived from environment.yml / requirements_conda.txt, but with:
 #   - exact build hashes dropped (many old builds were pruned from the channels),
 #   - notebook/experiment tooling removed (jupyter, wandb, xgboost, datasets, ...),
-# keeping only the packages the mm-shap_* scripts and the vendored shap/ actually use.
+# keeping only the packages mm-shap.py and the vendored shap/ actually use.
 #
 # `import shap` resolves to the vendored ./shap package (cwd precedence), so conda's
 # shap is intentionally omitted to stay consistent with the uv ("after") environment.

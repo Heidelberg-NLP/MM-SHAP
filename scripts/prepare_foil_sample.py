@@ -9,7 +9,7 @@ id is a Visual Genome image id, so images are fetched from the public Visual Gen
 mirror (``VG_100K`` / ``VG_100K_2``) and saved under the Visual7W name.
 
 A ``foils`` list field is added (mirroring the single ``foil`` string) so the
-``mm-shap_*`` scripts, which expect ``foil["foils"][0]``, run unmodified.
+``mm-shap.py`` runner, which expects ``foil["foils"][0]``, runs unmodified.
 
 Usage (inside the uv env):
     uv run python scripts/prepare_foil_sample.py --instrument existence --num 20

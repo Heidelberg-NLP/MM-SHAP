@@ -30,7 +30,7 @@ uv sync
 This installs everything declared in `pyproject.toml` and pinned in `uv.lock` into a local `.venv/`. Run any script through uv so it uses that environment:
 
 ```bash
-uv run python mm-shap_clip_dataset.py <num_samples> <write_res>
+uv run python mm-shap.py <model> <num_samples> [--write]
 ```
 
 > The legacy conda files (`environment.yml`, `requirements_conda.txt`, `requirements_pip.txt`) describe the original Python 3.6 stack and are kept for reference only.
@@ -46,21 +46,22 @@ curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/mi
 export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
 ./bin/micromamba env create -y -f environment.before.yml
 
-# run a script in the legacy env
-./bin/micromamba run -n shap-before python mm-shap_clip_dataset.py <num_samples> <write_res>
+# run in the legacy env
+./bin/micromamba run -n shap-before python mm-shap.py <model> <num_samples> [--write]
 ```
 
 This installs the original pins (Python 3.6.13, `torch 1.9.1`/CUDA 11.1, `transformers 4.11.1`, `numpy 1.19.2`, ...). Notebook/experiment tooling from the original file is intentionally omitted.
 
 ## Models
-Three models are supported, one per script. CLIP and LXMERT are downloaded
-automatically from the HuggingFace Hub on first run; ALBEF needs a one-time setup.
+Three models are supported, selected via the first argument to `mm-shap.py`. CLIP and
+LXMERT are downloaded automatically from the HuggingFace Hub on first run; ALBEF needs a
+one-time setup.
 
-| Script | Model | Weights source |
+| `model` arg | Model | Weights source |
 | --- | --- | --- |
-| `mm-shap_clip_dataset.py` | CLIP (`openai/clip-vit-base-patch32`) | HuggingFace Hub (automatic) |
-| `mm-shap_lxmert_dataset.py` | LXMERT (`unc-nlp/lxmert-base-uncased`) + Faster R-CNN (`unc-nlp/frcnn-vg-finetuned`) | HuggingFace Hub / legacy S3 (automatic) |
-| `mm-shap_albef_dataset.py` | ALBEF (finetuned checkpoints) | `scripts/setup_albef.py` |
+| `clip` | CLIP (`openai/clip-vit-base-patch32`) | HuggingFace Hub (automatic) |
+| `lxmert` | LXMERT (`unc-nlp/lxmert-base-uncased`) + Faster R-CNN (`unc-nlp/frcnn-vg-finetuned`) | HuggingFace Hub / legacy S3 (automatic) |
+| `albef` | ALBEF (finetuned checkpoints) | `scripts/setup_albef.py` |
 
 The ALBEF model code is vendored in `ALBEF/` (from
 [salesforce/ALBEF](https://github.com/salesforce/ALBEF); see `ALBEF/README.md`).
@@ -107,22 +108,23 @@ uv run python scripts/prepare_foil_sample.py --instrument existence --num 20
 ```
 
 This writes `data/foil-benchmark/annotations/existence.sample.json` and images under
-`data/foil-benchmark/images/existence/`. The `DATA` dict in each `mm-shap_*` script
+`data/foil-benchmark/images/existence/`. The `VALSE_DATA` dict in `mmshap/evaluation.py`
 already points at this sample for the `existence` instrument.
 
 ## Usage
-Run the corresponding script `mm-shap_[MODEL]_dataset.py` from the repository root
-(so that `import shap` resolves to the vendored `shap/` package):
+Run `mm-shap.py <model> <num_samples>` from the repository root (so that `import shap`
+resolves to the vendored `shap/` package):
 
 ```bash
-uv run python mm-shap_clip_dataset.py 20 no      # <num_samples: int|"all"> <write_res: yes|no>
-uv run python scripts/setup_albef.py             # once, for ALBEF
-uv run python mm-shap_albef_dataset.py 20 flickr30k no   # <num_samples> <checkpoint> <write_res>
+uv run python mm-shap.py clip 20                        # num_samples is an int or "all"
+uv run python scripts/setup_albef.py                    # once, for ALBEF
+uv run python mm-shap.py albef 20 --checkpoint flickr30k --write   # --write saves result jsons
 ```
 
 For the full benchmark, download the datasets from their sources
 (VALSE 💃 https://github.com/Heidelberg-NLP/VALSE, VQA https://visualqa.org/download.html,
-GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and adjust the `DATA` dict.
+GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and add them to
+`VALSE_DATA` in `mmshap/evaluation.py`.
 
 ## Regression testing (before vs. after)
 To check that the modernized (uv / Python 3.10) stack reproduces the legacy
