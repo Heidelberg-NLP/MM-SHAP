@@ -20,11 +20,101 @@ This is the official implementation of the paper "MM-SHAP: A Performance-agnosti
 }
 ```
 
-## Usage
-To run experiments with CLIP, LXMERT and ALBEF models, run the corresponding script `mm-shap_[MODEL]_dataset.py`. You need to download the data from their corresponding repositories, for example:
-* VALSE 💃: https://github.com/Heidelberg-NLP/VALSE
-* VQA: https://visualqa.org/download.html
-* GQA: https://cs.stanford.edu/people/dorarad/gqa/download.html
+## Setup
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). To create the environment (pinned to Python 3.10):
 
-## Credits
-The Shapley value implementation in the `shap` folder is a modified version of https://github.com/slundberg/shap .
+```bash
+uv sync
+```
+
+This installs everything declared in `pyproject.toml` and pinned in `uv.lock` into a local `.venv/`. Run any script through uv so it uses that environment:
+
+```bash
+uv run python mm-shap.py <model> <num_samples> [--write]
+```
+
+### HuggingFace access
+CLIP, LXMERT, Faster R-CNN and `bert-base-uncased` download from the HuggingFace Hub on
+first run. To point downloads at a custom cache directory (and pass a token for gated
+models), copy `.env.example` to `.env` and set `HF_CACHE` / `HF_TOKEN`; `mm-shap.py` loads
+it at startup.
+
+## Models
+Three models are supported, selected via the first argument to `mm-shap.py`. CLIP and
+LXMERT are downloaded automatically from the HuggingFace Hub on first run; ALBEF needs a
+one-time setup.
+
+| `model` arg | Model | Weights source |
+| --- | --- | --- |
+| `clip` | CLIP (`openai/clip-vit-base-patch32`) | HuggingFace Hub (automatic) |
+| `lxmert` | LXMERT (`unc-nlp/lxmert-base-uncased`) + Faster R-CNN (`unc-nlp/frcnn-vg-finetuned`) | HuggingFace Hub / legacy S3 (automatic) |
+| `albef` | ALBEF (finetuned checkpoints) | `scripts/setup_albef.py` |
+
+The ALBEF model code is vendored in `ALBEF/` (from
+[salesforce/ALBEF](https://github.com/salesforce/ALBEF); see `ALBEF/README.md`).
+You only need to download a checkpoint:
+
+```bash
+uv run python scripts/setup_albef.py                 # default: flickr30k checkpoint
+# other checkpoints: --checkpoint {flickr30k,mscoco,refcoco,vqa,ALBEF,ALBEF_4M,all}
+```
+
+Notes on modernization:
+* The Faster R-CNN loader (`LXMERT/modeling_frcnn.py`) defaulted to the dead
+  `cdn.huggingface.co`; it now uses the still-live legacy S3 bucket.
+* ALBEF's vendored `xbert.py` used a removed `add_code_sample_docstrings(tokenizer_class=...)`
+  argument (patched away), and the ALBEF adapter now uses the stock
+  `transformers.BertTokenizer` (identical output for `bert-base-uncased`).
+
+Model weights (LXMERT/CLIP from the HuggingFace Hub, ALBEF `.pth` checkpoints) and
+datasets are gitignored. The ALBEF and LXMERT *code* is vendored (see the
+third-party license note below).
+
+## Dataset (foil-benchmark / VALSE)
+Experiments use the VALSE benchmark ([Heidelberg-NLP/VALSE](https://github.com/Heidelberg-NLP/VALSE)).
+`scripts/prepare_foil_sample.py` downloads a small, self-contained sample for one
+instrument: it fetches the annotation json and a handful of images (for `existence`,
+the Visual7W ids map to public Visual Genome images) into `data/foil-benchmark/`.
+
+```bash
+uv run python scripts/prepare_foil_sample.py --instrument existence --num 20
+```
+
+This writes `data/foil-benchmark/annotations/existence.sample.json` and images under
+`data/foil-benchmark/images/existence/`. The `VALSE_DATA` dict in `mmshap/evaluation.py`
+already points at this sample for the `existence` instrument.
+
+## Usage
+Run `mm-shap.py <model> <num_samples>` from the repository root (so that `import shap`
+resolves to the vendored `shap/` package):
+
+```bash
+uv run python mm-shap.py clip 20                        # num_samples is an int or "all"
+uv run python scripts/setup_albef.py                    # once, for ALBEF
+uv run python mm-shap.py albef 20 --checkpoint flickr30k --write   # --write saves result jsons
+```
+
+Masked (image, sentence) variants are scored in batches; `--batch-size N` (default 64)
+trades GPU memory for speed. `--write` saves per-sample result jsons under `result_jsons/`.
+
+For the full benchmark, download the datasets from their sources
+(VALSE 💃 https://github.com/Heidelberg-NLP/VALSE, VQA https://visualqa.org/download.html,
+GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and add them to
+`VALSE_DATA` in `mmshap/evaluation.py`.
+
+## Credits & third-party licenses
+This repository is MIT-licensed (see `LICENSE`), but it bundles third-party code
+under its own license:
+
+* The Shapley value implementation in the `shap` folder is a modified version of
+  https://github.com/slundberg/shap (MIT).
+* The `LXMERT/` folder (Faster R-CNN feature extraction) is from the HuggingFace
+  `transformers` LXMERT example and is licensed under **Apache License 2.0**, not
+  MIT. See `LXMERT/LICENSE` and `LXMERT/README.md` for provenance and the list of
+  modifications.
+* The `ALBEF/` folder is vendored from
+  [salesforce/ALBEF](https://github.com/salesforce/ALBEF), licensed **BSD-3-Clause**
+  (`ALBEF/LICENSE`), except `models/xbert.py` and `models/tokenization_bert.py`,
+  which retain their HuggingFace-derived **Apache-2.0** headers. See
+  `ALBEF/README.md` for provenance and modifications. Only the large `.pth`
+  checkpoints are fetched at setup time (`scripts/setup_albef.py`).

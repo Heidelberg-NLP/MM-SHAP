@@ -133,7 +133,7 @@ class ExplanationError():
             for _ in range(self.num_permutations):
                 masks = []
                 for k in range(output_size):
-                    mask = np.zeros(mask_shape, dtype=np.bool)
+                    mask = np.zeros(mask_shape, dtype=bool)
                     masks.append(mask.copy().flatten())
 
                     if output_size != 1:
@@ -145,7 +145,7 @@ class ExplanationError():
 
                     # shuffle the indexes so we get a random permutation ordering
                     if row_clustering is not None:
-                        inds_mask = np.ones(len(test_attributions), dtype=np.bool)
+                        inds_mask = np.ones(len(test_attributions), dtype=bool)
                         partition_tree_shuffle(ordered_inds, inds_mask, row_clustering)
                     else:
                         np.random.shuffle(ordered_inds)

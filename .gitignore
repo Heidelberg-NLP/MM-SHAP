@@ -1,3 +1,25 @@
 /.vscode
 /__pycache__
 *.pyc
+
+# uv / virtual environment
+.venv/
+
+.env
+
+# Model weights (fetched via scripts / HuggingFace, not tracked).
+# The ALBEF *code* (models/, configs/) is now vendored; only the large
+# checkpoints are fetched at setup time.
+/ALBEF/checkpoints/*.pth
+
+# Datasets and sample images (fetched via scripts/prepare_foil_sample.py)
+/data/
+
+# Local HuggingFace cache
+/.hf_cache/
+
+# Results written by mm-shap.py
+/result_jsons/
+/results_txts/
+
+/regression_results/

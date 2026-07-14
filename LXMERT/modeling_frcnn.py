@@ -14,6 +14,10 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.import copy
+
+ Modifications 2024 by Letitia Parcalabescu (MM-SHAP): the default weight
+ source was changed from the now-dead CloudFront CDN (cdn.huggingface.co) to
+ the still-live legacy S3 bucket (use_cdn defaults to False; see get_config_dict).
  """
 import itertools
 import math
@@ -39,8 +43,8 @@ def norm_box(boxes, raw_sizes):
         normalized_boxes = boxes.copy()
     else:
         normalized_boxes = boxes.clone()
-    normalized_boxes[:, :, (0, 2)] /= raw_sizes[:, 1]
-    normalized_boxes[:, :, (1, 3)] /= raw_sizes[:, 0]
+    normalized_boxes[:, :, (0, 2)] /= raw_sizes[:, 1].view(-1, 1, 1)
+    normalized_boxes[:, :, (1, 3)] /= raw_sizes[:, 0].view(-1, 1, 1)
     return normalized_boxes
 
 
@@ -1678,7 +1682,9 @@ class GeneralizedRCNN(nn.Module):
         resume_download = kwargs.pop("resume_download", False)
         proxies = kwargs.pop("proxies", None)
         local_files_only = kwargs.pop("local_files_only", False)
-        use_cdn = kwargs.pop("use_cdn", True)
+        # NOTE: the old CloudFront CDN (cdn.huggingface.co) is dead; the weights are
+        # still served from the legacy S3 bucket, so default to that (use_cdn=False).
+        use_cdn = kwargs.pop("use_cdn", False)
 
         # Load config if we don't provide a configuration
         if not isinstance(config, Config):
