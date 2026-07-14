@@ -33,24 +33,11 @@ This installs everything declared in `pyproject.toml` and pinned in `uv.lock` in
 uv run python mm-shap.py <model> <num_samples> [--write]
 ```
 
-> The legacy conda files (`environment.yml`, `requirements_conda.txt`, `requirements_pip.txt`) describe the original Python 3.6 stack and are kept for reference only.
-
-### Legacy "before" environment (for regression testing)
-To reproduce the original Python 3.6 stack (e.g. to generate baseline outputs and check the modernized code matches), a minimal, runnable conda spec is provided in `environment.before.yml`. It is built with a local [micromamba](https://mamba.readthedocs.io/):
-
-```bash
-# one-time: download the micromamba binary into ./bin
-curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-
-# create the env (into ./.micromamba, both gitignored)
-export MAMBA_ROOT_PREFIX="$PWD/.micromamba"
-./bin/micromamba env create -y -f environment.before.yml
-
-# run in the legacy env
-./bin/micromamba run -n shap-before python mm-shap.py <model> <num_samples> [--write]
-```
-
-This installs the original pins (Python 3.6.13, `torch 1.9.1`/CUDA 11.1, `transformers 4.11.1`, `numpy 1.19.2`, ...). Notebook/experiment tooling from the original file is intentionally omitted.
+### HuggingFace access
+CLIP, LXMERT, Faster R-CNN and `bert-base-uncased` download from the HuggingFace Hub on
+first run. To point downloads at a custom cache directory (and pass a token for gated
+models), copy `.env.example` to `.env` and set `HF_CACHE` / `HF_TOKEN`; `mm-shap.py` loads
+it at startup.
 
 ## Models
 Three models are supported, selected via the first argument to `mm-shap.py`. CLIP and
@@ -72,30 +59,16 @@ uv run python scripts/setup_albef.py                 # default: flickr30k checkp
 # other checkpoints: --checkpoint {flickr30k,mscoco,refcoco,vqa,ALBEF,ALBEF_4M,all}
 ```
 
-Notes on modernization (kept identical between the "before" and "after" stacks):
+Notes on modernization:
 * The Faster R-CNN loader (`LXMERT/modeling_frcnn.py`) defaulted to the dead
   `cdn.huggingface.co`; it now uses the still-live legacy S3 bucket.
 * ALBEF's vendored `xbert.py` used a removed `add_code_sample_docstrings(tokenizer_class=...)`
-  argument (patched away), and the ALBEF script now uses the stock
+  argument (patched away), and the ALBEF adapter now uses the stock
   `transformers.BertTokenizer` (identical output for `bert-base-uncased`).
 
 Model weights (LXMERT/CLIP from the HuggingFace Hub, ALBEF `.pth` checkpoints) and
 datasets are gitignored. The ALBEF and LXMERT *code* is vendored (see the
 third-party license note below).
-
-### Local model snapshots (needed for the legacy env)
-The legacy `transformers 4.11.1` in the "before" env cannot download from the
-current HuggingFace Hub. `scripts/fetch_local_models.py` pre-downloads the model
-files into `models_local/` (gitignored) so **both** stacks load from a local path
-(also guaranteeing byte-identical weights):
-
-```bash
-uv run python scripts/fetch_local_models.py          # CLIP, LXMERT, BERT, Faster R-CNN
-```
-
-At runtime the scripts call `mmshap_repro.resolve_model(<hf id>)`, which returns the
-local snapshot if present and otherwise falls back to the normal Hub id, so the
-`.venv` ("after") env still works without this step.
 
 ## Dataset (foil-benchmark / VALSE)
 Experiments use the VALSE benchmark ([Heidelberg-NLP/VALSE](https://github.com/Heidelberg-NLP/VALSE)).
@@ -121,45 +94,13 @@ uv run python scripts/setup_albef.py                    # once, for ALBEF
 uv run python mm-shap.py albef 20 --checkpoint flickr30k --write   # --write saves result jsons
 ```
 
+Masked (image, sentence) variants are scored in batches; `--batch-size N` (default 64)
+trades GPU memory for speed. `--write` saves per-sample result jsons under `result_jsons/`.
+
 For the full benchmark, download the datasets from their sources
 (VALSE 💃 https://github.com/Heidelberg-NLP/VALSE, VQA https://visualqa.org/download.html,
 GQA https://cs.stanford.edu/people/dorarad/gqa/download.html) and add them to
 `VALSE_DATA` in `mmshap/evaluation.py`.
-
-## Regression testing (before vs. after)
-To check that the modernized (uv / Python 3.10) stack reproduces the legacy
-(conda / Python 3.6) stack, `scripts/regression_test.py` runs the *same* fixed
-sample through both environments and compares the per-sample model predictions and
-t-SHAP scores. Both stacks share the same vendored `shap/` source, so this isolates
-the effect of the dependency upgrade (torch 1.9→2.2, transformers 4.11→4.39,
-numpy 1.19→1.26).
-
-Prerequisites: create both envs (`uv sync` and the `environment.before.yml` env
-above), fetch the local model snapshots, and prepare the data sample.
-
-```bash
-uv run python scripts/fetch_local_models.py
-uv run python scripts/prepare_foil_sample.py --instrument existence --num 20
-
-uv run python scripts/regression_test.py --model clip   --num 3
-uv run python scripts/regression_test.py --model lxmert --num 3
-uv run python scripts/regression_test.py --model albef  --num 3 --checkpoint flickr30k
-```
-
-Determinism is controlled by the `MMSHAP_SEED` environment variable (set by the
-harness; unset means the original stochastic behaviour). When set, `mmshap_repro.py`
-seeds Python/NumPy/torch so the shap permutation orderings match across stacks.
-
-Expected parity (numbers from the `existence` sample, 3 samples, seed 0):
-* **CLIP** (CPU) reproduces almost exactly — max |Δ| ≈ 2e-3.
-* **ALBEF** (GPU, ViT + BERT) also reproduces tightly — max |Δ| ≈ 4e-4.
-* **LXMERT** (GPU, incl. Faster R-CNN feature extraction) is looser — max |Δ| ≈ 8e-2.
-  The RoI-pooling / NMS ops in FRCNN differ across CUDA/torch versions, so LXMERT
-  reproduces only *qualitatively* (a few percent at the logit level, but identical
-  pairwise accuracy).
-
-The harness uses a per-model default tolerance (CLIP `1e-2`, LXMERT/ALBEF `1e-1`);
-pass `--tol` to override.
 
 ## Credits & third-party licenses
 This repository is MIT-licensed (see `LICENSE`), but it bundles third-party code

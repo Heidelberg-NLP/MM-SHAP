@@ -22,7 +22,6 @@ from LXMERT.modeling_frcnn import GeneralizedRCNN  # noqa: E402
 from LXMERT.processing_image import Preprocess  # noqa: E402
 from mmshap.core import MMShapModel, Sample  # noqa: E402
 from mmshap.masking import patch_grid_size  # noqa: E402
-from mmshap_repro import resolve_model  # noqa: E402
 
 
 class Lxmert(MMShapModel):
@@ -33,8 +32,8 @@ class Lxmert(MMShapModel):
     end_token = 102
 
     def __init__(self) -> None:
-        frcnn_id = resolve_model("unc-nlp/frcnn-vg-finetuned")
-        lxmert_id = resolve_model("unc-nlp/lxmert-base-uncased")
+        frcnn_id = "unc-nlp/frcnn-vg-finetuned"
+        lxmert_id = "unc-nlp/lxmert-base-uncased"
         self.frcnn_cfg = Config.from_pretrained(frcnn_id)
         self.frcnn_cfg.MODEL.DEVICE = "cuda"
         self.frcnn = GeneralizedRCNN.from_pretrained(

@@ -73,7 +73,6 @@ def read_vqa(vqa_path):
     with open(vqa_path) as json_file:
         vqa_data = json.load(json_file)
         # there are 81,434 images. Subsample 1k of them
-        np.random.seed(0)
         subsample = np.random.choice(
             len(vqa_data['questions']), 1500, replace=False)
         # print(foils_data.keys())
@@ -108,7 +107,6 @@ def read_gqa(gqa_path):
     """
     foils_data = {}
     split = 'val'
-    np.random.seed(0)
 
     with open(gqa_path) as json_file:
         gqa_data = json.load(json_file)
@@ -149,7 +147,6 @@ def read_nlvr2(nlvr_path, images_root):
     with open(nlvr_path) as json_file:
         nlvr_data = [json.loads(line) for line in json_file.readlines()]
         # there are 81,434 images. Subsample 1k of them
-        np.random.seed(0)
         # TODO increase this number!
         subsample = np.random.choice(len(nlvr_data), 1500, replace=False)
         # print(foils_data.keys())

@@ -4,8 +4,8 @@ Runs the MM-SHAP analysis for one model (CLIP, LXMERT, or ALBEF) over the VALSE 
 benchmark: for each (image, sentence) pair it reports how much of the model's
 image-text matching score comes from the text vs. the image, plus pairwise
 caption-vs-foil accuracy. The heavy lifting lives in the ``mmshap`` package; this file
-only parses arguments, seeds for determinism, builds the requested model, and hands
-off to ``mmshap.evaluation.run``.
+only parses arguments, builds the requested model, and hands off to
+``mmshap.evaluation.run``.
 
 Must be run from the repository root so that ``import shap`` resolves to the vendored
 ``shap/`` package (a modified copy) rather than any pip-installed shap:
@@ -23,9 +23,9 @@ that dataset -- e.g. ``flickr30k`` or ``mscoco``. It is ignored for CLIP and LXM
 """
 import argparse
 
+from hf_env import load_env
 from mmshap.core import MMShapModel
 from mmshap.evaluation import VALSE_DATA, run
-from mmshap_repro import maybe_seed
 
 
 def build_model(name: str, checkpoint: str) -> MMShapModel:
@@ -52,7 +52,7 @@ def main() -> None:
     ap.add_argument("--write", action="store_true", help="write result jsons")
     args = ap.parse_args()
 
-    maybe_seed()  # deterministic only if MMSHAP_SEED is set (used by the harness)
+    load_env()  # export HF token + cache dir before any model download
     num = args.num_samples
     num_samples = num if num == "all" else int(num)
     suffix = f"_{args.checkpoint}" if args.model == "albef" else ""

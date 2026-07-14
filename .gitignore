@@ -5,9 +5,7 @@
 # uv / virtual environment
 .venv/
 
-# micromamba (local conda distribution + envs) for the legacy "before" stack
-/.micromamba/
-/bin/micromamba
+.env
 
 # Model weights (fetched via scripts / HuggingFace, not tracked).
 # The ALBEF *code* (models/, configs/) is now vendored; only the large
@@ -17,9 +15,6 @@
 # Datasets and sample images (fetched via scripts/prepare_foil_sample.py)
 /data/
 
-# Pre-downloaded model snapshots (fetched via scripts/fetch_local_models.py)
-/models_local/
-
 # Local HuggingFace cache
 /.hf_cache/
 
@@ -27,5 +22,4 @@
 /result_jsons/
 /results_txts/
 
-# Before/after regression harness outputs
 /regression_results/

@@ -14,7 +14,6 @@ from ALBEF.models.vit import VisionTransformer
 from ALBEF.models.xbert import BertConfig, BertModel
 from mmshap.core import MMShapModel, Sample
 from mmshap.masking import patch_grid_size
-from mmshap_repro import resolve_model
 
 IMAGE_SIZE = 384
 BERT_CONFIG = "ALBEF/configs/config_bert.json"
@@ -68,7 +67,7 @@ class Albef(MMShapModel):
 
     def __init__(self, checkpoint: str) -> None:
         self.title = f"ALBEF {checkpoint}"
-        bert = resolve_model("bert-base-uncased")
+        bert = "bert-base-uncased"
         self.tokenizer = BertTokenizer.from_pretrained(bert)
         self.model = VLTransformerITM(text_encoder=bert, config_bert=BERT_CONFIG)
         state = torch.load(f"ALBEF/checkpoints/{checkpoint}.pth", map_location="cpu")

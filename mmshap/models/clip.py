@@ -8,7 +8,6 @@ from transformers import CLIPModel, CLIPProcessor
 
 from mmshap.core import MMShapModel, Sample
 from mmshap.masking import patch_grid_size
-from mmshap_repro import resolve_model
 
 IMAGE_SIZE = 224
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -22,7 +21,7 @@ class Clip(MMShapModel):
     end_token = 49407
 
     def __init__(self) -> None:
-        name = resolve_model("openai/clip-vit-base-patch32")
+        name = "openai/clip-vit-base-patch32"
         self.model = CLIPModel.from_pretrained(name).to(DEVICE)
         self.processor = CLIPProcessor.from_pretrained(name)
 

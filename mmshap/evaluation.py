@@ -14,7 +14,6 @@ from tqdm import tqdm
 from mmshap.core import MMShapModel, mm_shap_score
 from read_datasets import read_data
 
-SUBSAMPLE_SEED = 1520
 MTURK_MIN_VOTES = 2  # keep only examples whose caption enough annotators accepted
 ROLES = ("caption", "foil")
 
@@ -32,7 +31,6 @@ def select_sentences(instrument: str, foil: dict) -> list[str]:
 def evaluate(model: MMShapModel, instrument: str, images_path: str,
              annotations_path: str, num_samples) -> dict:
     data = read_data(instrument, annotations_path, images_path)
-    random.seed(SUBSAMPLE_SEED)
     if num_samples != "all":
         data = dict(random.sample(list(data.items()), num_samples))
 
